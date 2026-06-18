@@ -1,0 +1,71 @@
+# ============================================================
+# UE5.4 关卡蓝图 — 按E键打印测试信息
+# 
+# 功能描述:
+#   玩家按下键盘 E 键时，屏幕输出 "Hello from UE5.4 Level BP!"
+#   这是一个标准的 UE5.4 关卡蓝图交互流程:
+#   InputAction → PrintString
+#
+# 测试用途:
+#   验证 ue-blue 蓝图工具的导入/导出功能
+#   验证 ImportFromFile → 创建节点 → 创建连接的完整流程
+#
+# 引擎: Unreal Engine 5.4
+# 蓝图类型: Level Blueprint (关卡蓝图)
+# ============================================================
+
+[Meta] graph_name="UE5.4 Level Blueprint - Press E to Print"
+[Meta] graph_version="1.0"
+[Meta] engine="UE5.4"
+[Meta] graph_type="LevelBlueprint"
+[Meta] author="ue-blue Import Test"
+[Meta] description="Test level blueprint: pressing the E key triggers PrintString 'Hello from UE5.4 Level BP!'"
+
+# ────────────────────────────────────────────────────────────────
+# 节点 1: InputAction 事件节点 — 键盘按键 E
+# 
+# UE5.4 中，InputAction 通过 EnhancedInput 系统处理按键输入。
+# 此节点在按下 E 键时触发 Pressed 引脚。
+# 颜色: 红色 (Event/IO)
+# ────────────────────────────────────────────────────────────────
+
+[Node] id=1 type=KeyEvent name="InputAction E" pos=(200.0,200.0) color=#E53935
+  OUT:Pressed|exec
+  OUT:Released|exec
+
+# ────────────────────────────────────────────────────────────────
+# 节点 2: PrintString 实用节点
+# 
+# UE5.4 中用于在屏幕上输出调试文本。
+# 参数:
+#   InString  - 要输出的文本内容
+#   Duration  - 显示持续时间(秒)，默认 2.0
+#   TextColor - 文本颜色，默认白色
+# ================================================================
+# 颜色: 橙色 (Utility)
+# ────────────────────────────────────────────────────────────────
+
+[Node] id=2 type=PrintString name="Print Hello" pos=(550.0,200.0) color=#FF9800
+  IN:Exec|exec
+  IN:InString|string
+  IN:Duration|float
+  IN:TextColor|color
+  OUT:Out|exec
+
+# ────────────────────────────────────────────────────────────────
+# 连接关系
+# 说明: InputAction.Pressed → PrintString.Exec
+# 即按下E键触发打印操作
+# ────────────────────────────────────────────────────────────────
+
+[Connection] 1:Pressed → 2:Exec
+
+# ============================================================
+# 预期执行流程:
+#   1. 玩家按下键盘 E 键
+#   2. InputAction E 节点的 Pressed 引脚触发
+#   3. 执行流传递到 Print Hello 节点的 Exec 引脚
+#   4. 屏幕上显示 "Hello from UE5.4 Level BP!" (持续2秒)
+# ============================================================
+
+# === End of Graph ===

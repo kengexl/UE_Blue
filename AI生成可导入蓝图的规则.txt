@@ -1,0 +1,122 @@
+# ============================================================================
+# AI 生成可导入蓝图的规则 — ue-blue 蓝图工具系统
+# 版本: v1.0
+# 用法: AI 根据此规则生成 .txt 文件，导入到 ue-blue 蓝图编辑器（Godot 4 C#）
+# 导入入口: 右键画布 → "导入图..."
+# ============================================================================
+
+# 【第1步 — 文件结构】
+# 每个 .txt 文件代表一个蓝图图（Blueprint Graph）。
+# 文件由三部分组成: 元数据 → 节点定义 → 连接定义
+# 以 # 开头的行是注释，导入时会被忽略。
+
+# 【第2步 — 元数据 (Meta)】
+# 格式: [Meta] key="value"
+# 支持的 key: graph_name, engine, graph_type, author, description
+# 示例:
+#   [Meta] graph_name="My Blueprint"
+#   [Meta] engine="UE5.4"
+#   [Meta] graph_type="LevelBlueprint"
+
+# 【第3步 — 节点定义 (Node)】
+# 格式（一行）:
+#   [Node] id=N type=TYPE name="显示名称" pos=(X坐标,Y坐标) color=HEX颜色
+# 格式（缩进行，定义端口）:
+#     IN:端口名|端口类型
+#     OUT:端口名|端口类型
+#
+# 参数说明:
+#   id=N       — 文件中唯一的整数 ID（从1开始递增）
+#   type=TYPE  — 节点类型名（见下方类型表）
+#   name="..." — 节点左上角显示的标题文本
+#   pos=(X,Y)  — 画布上的 X、Y 像素坐标
+#   color=HEX  — Header 颜色 如 #E53935（红色）, #2196F3（蓝色）, #4CAF50（绿色）
+#
+# 端口类型 (portType) 枚举:
+#   exec   — 执行流（白线）
+#   int    — 整数（绿线）
+#   float  — 浮点数（绿线）
+#   string — 字符串（紫线）
+#   bool   — 布尔值（红线）
+#   vector — 坐标/向量（金线）
+#   object — 对象引用（蓝线）
+#   color  — 颜色值
+
+# 【第4步 — 连接定义 (Connection)】
+# 格式:
+#   [Connection] 源节点ID:源端口名 → 目标节点ID:目标端口名
+#   ↑ 箭号用 → (U+2192) 或 -> 均可
+#
+# 规则:
+#   - 一台 OUT 端口可以连接多个 IN 端口
+#   - 同一个连接不能重复
+
+# 【第5步 — 节点类型速查表】
+# --------+----------+-----+-----+------------------+----------------------------------
+#  type    | 名称     |  IN | OUT | Header色          | 典型用途
+# --------+----------+-----+-----+------------------+----------------------------------
+#  KeyEvent       | 按键事件   |  0  |  2  | #E53935（红）    | 键盘按下/释放
+#  EventBeginPlay | 开始游戏   |  0  |  1  | #E53935（红）    | 关卡/游戏启动
+#  EventTick      | 每帧事件   |  0  |  2  | #E53935（红）    | 每帧触发
+#  BeginOverlap   | 重叠开始   |  0  |  2  | #E53935（红）    | 碰撞检测
+#  PrintString    | 输出文本   |  4  |  1  | #FF9800（橙）    | 屏幕调试输出
+#  Branch         | 条件分支   |  2  |  2  | #1976D2（蓝）    | if-else 判断
+#  Sequence       | 序列       |  1  | N 可扩展 | #1976D2（蓝）    | 依次执行多个输出
+#  Delay          | 延迟       |  2  |  1  | #7B1FA2（紫）    | 等待 N 秒
+#  ForLoop        | 循环       |  3  |  3  | #1976D2（蓝）    | 计数循环
+#  SpawnActor     | 生成对象   |  2  |  2  | #FF9800（橙）    | 动态创建 Actor
+#  DestroyActor   | 销毁对象   |  2  |  1  | #FF9800（橙）    | 销毁目标
+#  SetActorLoc    | 设置位置   |  2  |  1  | #FF9800（橙）    | 移动 Actor
+#  PrintHello     | 测试节点   |  1  |  1  | #FF9800（橙）    | 测试用
+#  TestComponent  | 测试组件   |  1  |  1  | #2196F3（蓝）    | 通用测试节点
+# --------+----------+-----+-----+------------------+----------------------------------
+# 注: TestComponent 的端口名为 "In" 和 "Out"（固定），其他类型端口名可自定义。
+
+# 【第6步 — KeyEvent 的固定端口格式】
+# KeyEvent 节点必须包含两个端口:
+#   OUT:Pressed|exec
+#   OUT:Released|exec
+# 不要修改这两个端口名。
+
+# 【第7步 — PrintString 的固定端口格式】
+# PrintString 节点必须包含以下端口:
+#   IN:Exec|exec
+#   IN:InString|string
+#   IN:Duration|float
+#   IN:TextColor|color
+#   OUT:Out|exec
+
+# 【第8步 — 完整示例：UE5.4 关卡蓝图 按E键输出文本】
+# 下面是一个完整的可导入蓝图文件:
+
+[Meta] graph_name="我的第一个蓝图"
+[Meta] engine="UE5.4"
+[Meta] graph_type="LevelBlueprint"
+[Meta] author="AI-Generated"
+[Meta] description="按下E键输出Hello World"
+
+[Node] id=1 type=KeyEvent name="InputAction E" pos=(200.0,200.0) color=#E53935
+  OUT:Pressed|exec
+  OUT:Released|exec
+
+[Node] id=2 type=PrintString name="Print Hello" pos=(550.0,200.0) color=#FF9800
+  IN:Exec|exec
+  IN:InString|string
+  IN:Duration|float
+  IN:TextColor|color
+  OUT:Out|exec
+
+[Connection] 1:Pressed → 2:Exec
+
+# 【第9步 — AI 生成提示词模板】
+# 将以下提示词发给 AI，AI 即会根据规则生成 .txt 文件：
+#
+#   你是一个UE5蓝图专家。请根据以下规则生成一个可导入的 .txt 蓝图文件：
+#   - 格式: [Node] id=N type=TYPE name="名称" pos=(X,Y) color=HEX
+#   - 端口缩进一行: IN:PortName|portType 或 OUT:PortName|portType
+#   - 连接: [Connection] 源ID:端口 → 目标ID:端口
+#   - 支持的类型: KeyEvent, EventBeginPlay, EventTick, Branch, Sequence,
+#     PrintString, Delay, ForLoop, SpawnActor, TestComponent
+#   - 节点间距建议 X 差 300-400px，Y 差 0-150px
+#   - ID 从1开始递增
+#   请生成一个 {描述你的需求} 的蓝图文件。

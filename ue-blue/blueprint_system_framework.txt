@@ -1,0 +1,208 @@
+UE Blueprint Connection Tool - 脚本框架信息
+=============================================
+生成日期: 2026-06-18
+项目路径: ue-blue/addons/blueprint_system/
+
+一、项目概览
+-----------
+基于 Godot 4.5 的蓝图可视化脚本编辑器系统。
+使用 C# 实现，支持组件的拖拽、选中、端口连接、画布平移缩放。
+
+核心特性:
+- 可视化节点编辑器，支持三种节点类型（输出专用/双向/输入专用）
+- 端口到端口的连接系统，支持贝塞尔曲线绘制
+- 交互状态机（空闲/拖拽/连接/平移）
+- 事件总线架构，跨系统解耦通信
+- 完整的单元测试和集成测试
+
+二、目录结构
+-----------
+addons/blueprint_system/
+├── autoloads/           # Autoload 单例（全局生命周期）
+│   └── BlueprintEventBus.cs
+├── core/                # 核心系统逻辑
+│   ├── ComponentSystem.cs
+│   ├── ConnectionManager.cs
+│   └── InteractionSystem.cs
+├── data/                # 数据模型（继承 Resource）
+│   ├── ComponentData.cs
+│   ├── ConnectionData.cs
+│   ├── GraphData.cs
+│   └── PortDefinition.cs
+├── components/          # 组件实体（运行时）
+│   ├── BlueprintComponent.cs
+│   ├── TypeAComponent.cs
+│   ├── TypeBComponent.cs
+│   ├── TypeCComponent.cs
+│   └── TestComponent.cs
+├── ui/                  # UI 控件
+│   ├── EditorCanvas.cs
+│   ├── PortWidget.cs
+│   ├── ConnectionLine.cs
+│   └── GridBackground.cs
+└── tests/               # 测试
+    └── TestConnection.cs
+
+
+三、脚本详细信息
+===============
+
+3.1 autoloads/ - 自动加载单例
+-------------------------------
+BlueprintEventBus.cs (继承 Node)
+  角色: 全局事件总线，所有跨系统信号的中央路由器
+  关键API: Instance（单例）, 15个信号定义
+  信号列表:
+  - 组件事件: ComponentAdded, ComponentRemoved, ComponentMoved,
+              ComponentSelected, ComponentDeselected
+  - 连接事件: ConnectionCreated, ConnectionRemoved, ConnectionSelected
+  - 交互事件: ContextMenuRequested, DragStarted, DragEnded
+  - 图事件:   GraphChanged, GraphSaved, GraphLoaded
+  - 状态事件: BlueprintEditorStateChanged
+
+
+3.2 core/ - 核心系统
+---------------------
+ComponentSystem.cs (继承 Node, Autoload)
+  角色: 组件生命周期管理，维护组件注册表和ID分配
+  方法:
+  - RegisterComponent()   - 注册组件，分配唯一ID
+  - UnregisterComponent() - 注销并销毁组件
+  - GetComponent()        - 按ID查找组件
+  - GetAllComponents()    - 获取所有组件
+  - CreateComponent()     - 工厂方法创建组件（3种类型）
+
+ConnectionManager.cs (继承 Node)
+  角色: 连接关系管理，包含验证逻辑
+  方法:
+  - ValidateAndConnect()     - 验证并创建连接（自连接检查、重复连接检查）
+  - RemoveConnection()       - 删除连接
+  - GetConnectionLine()      - 获取连接线
+  - GetConnectionsForComponent() - 获取组件的所有连接
+  - GetDownstreamComponents()    - BFS遍历下游组件
+
+InteractionSystem.cs (继承 Node)
+  角色: 交互状态机，处理所有用户输入
+  方法:
+  - HandleInput() - 输入主入口
+  状态机:
+    NONE -> [左键点击组件标题] -> DRAGGING_COMPONENT -> [松开] -> NONE
+    NONE -> [左键点击输出端口] -> CONNECTING_PORTS   -> [点击输入端口] -> NONE
+    NONE -> [中键拖拽]         -> PANNING_CANVAS     -> [松开] -> NONE
+
+
+3.3 data/ - 数据模型
+---------------------
+PortDefinition.cs (继承 Resource)
+  角色: 端口元数据定义
+  属性: PortId, PortName, Direction(Input/Output), PortType, ConnectionLimit
+
+ComponentData.cs (继承 Resource)
+  角色: 组件数据模型
+  属性: ComponentId, ComponentName, Type(OutputOnly/Dual/InputOnly),
+        Position, Size, Ports, Properties
+
+ConnectionData.cs (继承 Resource)
+  角色: 连接数据
+  属性: ConnectionId, SourceComponentId, SourcePortId,
+        TargetComponentId, TargetPortId, ConnectionType
+  方法: IsValid(), GetHash()
+
+GraphData.cs (继承 Resource)
+  角色: 图顶层容器
+  属性: GraphName, GraphId, Components(Dictionary), Connections(Array),
+        Metadata, EditorState
+  方法: AddComponent(), RemoveComponent(), AddConnection(), RemoveConnection()
+
+
+3.4 components/ - 运行时组件
+-----------------------------
+BlueprintComponent.cs (继承 Node2D)
+  角色: 所有蓝图组件的抽象基类
+  功能: 视觉树构建、选中/高亮、端口查找
+  视觉层次: Panel -> ColorRect(Header) + Label + VBoxContainer(Ports)
+
+TypeAComponent.cs (继承 BlueprintComponent)
+  角色: 输出专用组件
+  Header颜色: 绿色 #4CAF50, 端口: 1个输出
+
+TypeBComponent.cs (继承 BlueprintComponent)
+  角色: 双向组件
+  Header颜色: 蓝色 #2196F3, 端口: 1输入+1输出
+
+TypeCComponent.cs (继承 BlueprintComponent)
+  角色: 输入专用组件
+  Header颜色: 橙红 #FF5722, 端口: 1个输入
+
+TestComponent.cs (继承 TypeBComponent)
+  角色: 测试组件
+  导出属性: TestLabel(string), TestValue(int)
+  方法: Process()
+
+
+3.5 ui/ - UI 控件
+------------------
+EditorCanvas.cs (继承 Control)
+  角色: 编辑画布，管理组件层和连接线层
+  方法:
+  - ScreenToCanvas() / CanvasToScreen() - 坐标转换
+  - SetZoom() / PanTo() - 缩放和平移
+  - ShowContextMenuAt() - 弹出上下文菜单
+
+PortWidget.cs (继承 Control)
+  角色: 端口可视化控件
+  绘制: 输入=圆形(居左), 输出=菱形(居右)
+  颜色: 默认#90CAF9/#FFD54F, 悬停#64B5F6/#FFCA28, 已连接#42A5F5/#FFB300
+  方法: GetGlobalPortPosition(), SetHighlight()
+
+ConnectionLine.cs (继承 Node2D)
+  角色: 贝塞尔曲线连接线
+  参数: 32段线性近似, 控制距离=max(|dx|*0.5, 50)
+  方法: UpdatePosition(), IntersectsPoint(), SetSelected(), SetHovered()
+
+GridBackground.cs (继承 ColorRect)
+  角色: 网格背景
+  网格: 次网格20px(#2A2A2A), 主网格100px(#3A3A3A), 背景#1E1E1E
+  方法: UpdateGrid()
+
+
+3.6 tests/ - 测试
+------------------
+TestConnection.cs (继承 Node)
+  角色: 单元测试和集成测试入口
+  测试组: 9组
+  清单:
+  1. TestComponentCreation       - 四种组件创建和端口
+  2. TestConnectionCreation      - 输出->输入连接成功
+  3. TestSelfConnectRejected     - 自连接拒绝
+  4. TestDuplicateConnectRejected - 重复连接拒绝
+  5. TestOutputToOutputRejected  - 输出->输出拒绝
+  6. TestComponentMovement       - 组件移动
+  7. TestGraphDataSerialization  - GraphData CRUD
+  8. TestEventBusSignals         - 信号收发
+  9. TestInteractionFlow         - 链式连接+拖拽+BFS
+
+
+四、场景文件
+-----------
+scenes/blueprint_editor.tscn      - 蓝图编辑器主场景
+scenes/test_blueprint_editor.tscn - 单元测试场景
+
+五、Autoload 配置 (project.godot)
+--------------------------------
+[autoload]
+BlueprintEventBus="*res://addons/blueprint_system/autoloads/BlueprintEventBus.cs"
+ComponentSystem="*res://addons/blueprint_system/core/ComponentSystem.cs"
+
+六、数据流架构
+-------------
+用户输入(鼠标/键盘) -> BlueprintEditor._Input()
+  -> InteractionSystem.HandleInput()  (状态机)
+     -> ComponentSystem      (组件创建/注册/查找)
+        -> BlueprintComponent (运行时实体)
+     -> ConnectionManager    (连接创建/删除/验证)
+        -> ConnectionData     (连接数据)
+        -> ConnectionLine     (贝塞尔曲线绘制)
+     -> EditorCanvas         (画布控制/坐标转换)
+        -> GridBackground     (网格背景)
+     -> BlueprintEventBus    (事件广播/跨系统通信)
